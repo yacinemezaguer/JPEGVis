@@ -137,6 +137,45 @@ public class JCompressor {
     return result;
   }
 
+  public int[][] reverseDCT(int[][] DCT, float[][] DCTCosTable) {
+    //returns the resulting image of @DCT matrix
+    int[][] result = new int[DCT.length][DCT[0].length];
+    float[][] alpha = new float[DCTCosTable.length][DCTCosTable.length];
+
+    int dim = DCTCosTable.length;
+
+    //left part of the formula (inside the double sum) #formula to be checked
+    for(int u = 0; u < dim; u++) {
+      for(int v = 0; v < dim; v++) {
+        alpha[u][v] = (u == 0 ? 1.0/sqrt(2) : 1.0) * (v == 0 ? 1.0/sqrt(2) : 1.0);
+      }
+    }
+
+    //loop through image blocks (dim * dim) bi = block row, bj = block column
+    for(int bi = 0, rows = DCT.length; bi < rows; bi += dim) {
+      for(int bj = 0, cols = DCT[0].length; bj < cols; bj += dim) {
+
+        //loop through elements of one block (dim * dim)
+        for(int x = 0; x < dim; x++) {
+          for(int y = 0; y < dim; y++) {
+            
+            float sum = 0;
+            for(int u = 0; u < dim; u++) {
+              for(int v = 0; v < dim; v++) {
+                sum += alpha[u][v] * DCT[bi + u][bj + v] * DCTCosTable[x][u] * DCTCosTable[y][v];
+              }
+            }
+
+            result[bi + x][bj + y] = (int) (sum / sqrt(2*dim));
+          }
+        }
+
+      }
+    }
+
+    return result;
+  }
+
   public int[][] DCT(int[][] original, float[][] DCTCosTable) {
     //returns DCT matrix of @original
     int[][] result = new int[original.length][original[0].length];
@@ -235,7 +274,9 @@ public static int[][] generateQMatrix(int dimension, int factor) {
 
 
 public static int[][] quantize(int[][] DCTMatrix, int[][] qMatrix) {
-    //divide the @DCTMatrix elements by the elements of the @qMatrix and returns the new resulting matrix
+    /*divides and re-multiplies the @DCTMatrix elements by the elements of the @qMatrix and returns the new resulting matrix
+      so that high frequency coeffs are set to 0
+    */
 
     /*
     if(DCTMatrix.length % qMatrix.length != 0 || DCTMatrix[0].length % qMatrix[0].length != 0) {
@@ -248,7 +289,7 @@ public static int[][] quantize(int[][] DCTMatrix, int[][] qMatrix) {
 
     for(int i = 0, rows = result.length; i < rows; i++) {
       for(int j = 0, cols = result[0].length; j < cols; j++) {
-        result[i][j] = DCTMatrix[i][j] / qMatrix[i % dim][j % dim];
+        result[i][j] = (DCTMatrix[i][j] / qMatrix[i % dim][j % dim]) * qMatrix[i % dim][j % dim];
       }
     }
 
