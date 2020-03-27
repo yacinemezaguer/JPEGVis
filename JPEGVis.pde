@@ -1,18 +1,24 @@
 
+PImage img;
+PImage comp;
 void setup() {
   size(300, 300);
-  float[][] matrice = generateDCTtable(8);
-  printMatrix(matrice);
-  //#continue writting DCT method
+  surface.setResizable(true);
+  img = loadImage("img.png");
+  JCompressor jc = new JCompressor(img, 0, JCompressor.CLR_M);
+  comp = jc.getCompressed();
+  surface.setSize(img.width, img.height);
 }
 
 void draw() {
+  //image(img, 0, 0);
+  image(comp, 0, 0);
   /*
   *  draw Graphical interface
   *  draw original image and compressed    
   */
-  background(0);
-  fill(255);
+  //background(0);
+  //fill(255);
 }
 
 void keyPressed()

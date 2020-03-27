@@ -10,9 +10,9 @@ public class JCompressor {
 
   /*Attributes*/
 
-  private char colorMode = BW_M;
+  private char colorMode = CLR_M;
   private int blockSize = DCTStandardSize;
-  private int qualityFactor = 5;
+  private int qualityFactor;
   private int quantizationMatrix[][];
   
   private PImage original;
@@ -46,98 +46,49 @@ public class JCompressor {
   private int qBlueDCT[][];
   
   public JCompressor(PImage img) {
-    //#not finished
-    original = img;
-    mWidth = original.width + (blockSize - original.width % blockSize);
-    mHeight = original.height + (blockSize - original.height % blockSize);
+    this(img, 5, CLR_M);
+  }
 
-    grayscale = toIntMatrix('l');
-    red = toIntMatrix('r');
-    green = toIntMatrix('g');
-    blue = toIntMatrix('b');
+  public JCompressor(PImage img, int factor, char colorMode) {
+    
+    this.qualityFactor = factor;
+    this.colorMode = colorMode;
+    this.original = img;
+    this.mWidth = original.width + (blockSize - original.width % blockSize);
+    this.mHeight = original.height + (blockSize - original.height % blockSize);
+
+    //generate matrices: grayscale, red, green and blue [Done]
+    grayscale = toIntMatrix(original, 'l', mWidth, mHeight);
+    red = toIntMatrix(original, 'r', mWidth, mHeight);
+    green = toIntMatrix(original, 'g', mWidth, mHeight);
+    blue = toIntMatrix(original, 'b', mWidth, mHeight);
 
     quantizationMatrix = generateQMatrix(blockSize, qualityFactor);
     calculateDCTs();
     quantizeDCTs();
     calculateReverseDCTs();
+
+    //generate resulting PImage
+    if(colorMode == BW_M) {
+      compressed = matrixToPImage(compGrayscale, original.width, original.height);
+    }else {
+      compressed = matrixToPImage(compRed, compGreen, compBlue, original.width, original.height);
+    }
   
     /*
     *  Copy reference to image [Done]
-    *  generate matrices: grayscale, red, green and blue [Done]
-    *  generate qMatrix [Done]
-    *  calculate DCT for grayscale, red, green and blue [Done]
-    *  quantize DCT matrices
-    *  generate compressed matrices (reverse DCT)
-    *  generate resulting PImage
+    *  
     */
+  }
+
+  public PImage getCompressed() {
+    //#check if it should return the reference or a copied image
+    return compressed;
   }
   
   public void setColorMode(char mode) {
     //#not written
     colorMode = mode;
-  }
-
-  private int[][] toIntMatrix(char colorSpace) {
-    //Returns a matrix of the image in the right color space (mWidth * mHeight compatible with blockSize)
-    original.loadPixels();
-    int[][] result = new int[mHeight][mWidth];
-    
-    switch (colorSpace) {
-    case 'L': //luminance (gray)
-    case 'l':
-      for(int i = 0; i < original.height; i++) {
-        for(int j = 0; j < original.width; j++) {
-          result[i][j] = (int) brightness(original.pixels[i*original.width + j]);
-        }
-      }
-      break;
-
-    case 'R': //red
-    case 'r':
-      for(int i = 0; i < original.height; i++) {
-        for(int j = 0; j < original.width; j++) {
-          result[i][j] = (int) red(original.pixels[i*original.width + j]);
-        }
-      }
-      break;
-
-    case 'G': //green
-    case 'g':
-      for(int i = 0; i < original.height; i++) {
-        for(int j = 0; j < original.width; j++) {
-          result[i][j] = (int) green(original.pixels[i*original.width + j]);
-        }
-      }
-      break;
-
-    case 'B': //blue
-    case 'b':
-      for(int i = 0; i < original.height; i++) {
-        for(int j = 0; j < original.width; j++) {
-          result[i][j] = (int) blue(original.pixels[i*original.width + j]);
-        }
-      }
-      break;
-
-    default:
-      return null;
-    }
-
-    //Filling missing columns (if width not multiple of blockSize)
-    for(int i = 0; i < original.height; i++) {
-      for(int j = original.width; j < mWidth ; j++) {
-        result[i][j] = color(128);
-      }
-    }
-
-    //Filling missing rows (if height not multiple of blockSize)
-    for(int i = original.height; i < mHeight; i++) {
-      for(int j = 0; j < mWidth ; j++) {
-        result[i][j] = color(128);
-      }
-    }
-
-    return result;
   }
   
   public void calculateDCTs() {
@@ -306,28 +257,89 @@ public static int[][] reverseDCT(int[][] DCT, float[][] DCTCosTable) {
   return result;
 }
 
-public static PImage matrixToPImage(int[][] gray) {
-  //takes a grayscale matrix image and returns a corresponding PImage
-  PImage result = createImage(gray[0].length, gray.length, RGB);
-  w = result.width;
+public int[][] toIntMatrix(PImage original, char colorSpace, int mWidth, int mHeight) {
+    //Returns a matrix of the image in the right color space (mWidth * mHeight compatible with blockSize)
+    original.loadPixels();
+    int[][] result = new int[mHeight][mWidth];
+    
+    switch (colorSpace) {
+    case 'L': //luminance (gray)
+    case 'l':
+      for(int i = 0; i < original.height; i++) {
+        for(int j = 0; j < original.width; j++) {
+          result[i][j] = (int) brightness(original.pixels[i*original.width + j]);
+        }
+      }
+      break;
+
+    case 'R': //red
+    case 'r':
+      for(int i = 0; i < original.height; i++) {
+        for(int j = 0; j < original.width; j++) {
+          result[i][j] = (int) red(original.pixels[i*original.width + j]);
+        }
+      }
+      break;
+
+    case 'G': //green
+    case 'g':
+      for(int i = 0; i < original.height; i++) {
+        for(int j = 0; j < original.width; j++) {
+          result[i][j] = (int) green(original.pixels[i*original.width + j]);
+        }
+      }
+      break;
+
+    case 'B': //blue
+    case 'b':
+      for(int i = 0; i < original.height; i++) {
+        for(int j = 0; j < original.width; j++) {
+          result[i][j] = (int) blue(original.pixels[i*original.width + j]);
+        }
+      }
+      break;
+
+    default:
+      return null;
+    }
+
+    //Filling missing columns (if width not multiple of blockSize)
+    for(int i = 0; i < original.height; i++) {
+      for(int j = original.width; j < mWidth ; j++) {
+        result[i][j] = color(128);
+      }
+    }
+
+    //Filling missing rows (if height not multiple of blockSize)
+    for(int i = original.height; i < mHeight; i++) {
+      for(int j = 0; j < mWidth ; j++) {
+        result[i][j] = color(128);
+      }
+    }
+
+    return result;
+  }
+
+public PImage matrixToPImage(int[][] gray, int w, int h) {
+  //takes a grayscale matrix image and returns a corresponding PImage (resolution of w * h)
+  PImage result = createImage(w, h, RGB);
 
   result.loadPixels();
   for(int i = 0; i < result.pixels.length; i++) {
-    result[i] = color(gray[i / w ][i % w]);
+    result.pixels[i] = color(gray[i / w ][i % w]);
   }
   result.updatePixels();
 
   return result;
 }
 
-public static PImage matrixToPImage(int[][] red, int[][] green, int[][] blue) {
+public PImage matrixToPImage(int[][] red, int[][] green, int[][] blue, int w, int h) {
   //takes 3 matrices image (r,g,b colorspaces) and returns a corresponding PImage
-  PImage result = createImage(gray[0].length, gray.length, RGB);
-  w = result.width;
+  PImage result = createImage(w, h, RGB);
 
   result.loadPixels();
   for(int i = 0; i < result.pixels.length; i++) {
-    result[i] = color(red[i / w ][i % w], green[i / w ][i % w], blue[i / w ][i % w]);
+    result.pixels[i] = color(red[i / w ][i % w], green[i / w ][i % w], blue[i / w ][i % w]);
   }
   result.updatePixels();
 
