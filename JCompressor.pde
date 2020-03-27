@@ -5,7 +5,7 @@ public class JCompressor {
 
   //Constants
   private static final char BW_M = 0;  //black and white
-  private static final char COLOR_M = 1;  //color
+  private static final char CLR_M = 1;  //color
   private static final int DCTStandardSize = 8;
 
   /*Attributes*/
@@ -56,16 +56,19 @@ public class JCompressor {
     green = toIntMatrix('g');
     blue = toIntMatrix('b');
 
-    calculateDCTs();
     quantizationMatrix = generateQMatrix(blockSize, qualityFactor);
+    calculateDCTs();
     quantizeDCTs();
+    calculateReverseDCTs();
   
     /*
-    *  Copy reference to image
-    *  generate matrices: grayscale, red, green and blue
-    *  generate qMatrix
-    *  calculate DCT for grayscale, red, green and blue
-    *  generate compressed components
+    *  Copy reference to image [Done]
+    *  generate matrices: grayscale, red, green and blue [Done]
+    *  generate qMatrix [Done]
+    *  calculate DCT for grayscale, red, green and blue [Done]
+    *  quantize DCT matrices
+    *  generate compressed matrices (reverse DCT)
+    *  generate resulting PImage
     */
   }
   
@@ -136,91 +139,25 @@ public class JCompressor {
 
     return result;
   }
-
-  public int[][] reverseDCT(int[][] DCT, float[][] DCTCosTable) {
-    //returns the resulting image of @DCT matrix
-    int[][] result = new int[DCT.length][DCT[0].length];
-    float[][] alpha = new float[DCTCosTable.length][DCTCosTable.length];
-
-    int dim = DCTCosTable.length;
-
-    //left part of the formula (inside the double sum) #formula to be checked
-    for(int u = 0; u < dim; u++) {
-      for(int v = 0; v < dim; v++) {
-        alpha[u][v] = (u == 0 ? 1.0/sqrt(2) : 1.0) * (v == 0 ? 1.0/sqrt(2) : 1.0);
-      }
-    }
-
-    //loop through image blocks (dim * dim) bi = block row, bj = block column
-    for(int bi = 0, rows = DCT.length; bi < rows; bi += dim) {
-      for(int bj = 0, cols = DCT[0].length; bj < cols; bj += dim) {
-
-        //loop through elements of one block (dim * dim)
-        for(int x = 0; x < dim; x++) {
-          for(int y = 0; y < dim; y++) {
-            
-            float sum = 0;
-            for(int u = 0; u < dim; u++) {
-              for(int v = 0; v < dim; v++) {
-                sum += alpha[u][v] * DCT[bi + u][bj + v] * DCTCosTable[x][u] * DCTCosTable[y][v];
-              }
-            }
-
-            result[bi + x][bj + y] = (int) (sum / sqrt(2*dim));
-          }
-        }
-
-      }
-    }
-
-    return result;
-  }
-
-  public int[][] DCT(int[][] original, float[][] DCTCosTable) {
-    //returns DCT matrix of @original
-    int[][] result = new int[original.length][original[0].length];
-    float[][] alpha = new float[DCTCosTable.length][DCTCosTable.length];
-
-    int dim = DCTCosTable.length;
-    //left part of the formula (before the double sum) #formula to be checked
-    for(int u = 0; u < dim; u++) {
-      for(int v = 0; v < dim; v++) {
-        alpha[u][v] = ( 2 * (u == 0 ? 1.0/sqrt(2) : 1.0) * (v == 0 ? 1.0/sqrt(2) : 1.0) ) / dim;
-      }
-    }
-
-    //loop through image blocks (dim * dim) bi = block row, bj = block column
-    for(int bi = 0, rows = original.length; bi < rows; bi += dim) {
-      for(int bj = 0, cols = original[0].length; bj < cols; bj += dim) {
-
-        //loop through elements of one block (dim * dim)
-        for(int u = 0; u < dim; u++) {
-          for(int v = 0; v < dim; v++) {
-            
-            float sum = 0;
-            for(int x = 0; x < dim; x++) {
-              for(int y = 0; y < dim; y++) {
-                sum += original[bi + x][bj + y] * DCTCosTable[x][u] * DCTCosTable[y][v];
-              }
-            }
-
-            result[bi + u][bj + v] = (int) (alpha[u][v] * sum);
-          }
-        }
-
-      }
-    }
-
-    return result;
-  }
   
   public void calculateDCTs() {
     //Calculates the DCT table of all color spaces (gray, red, green and blue DCT)
     float[][] DCTCosTable = generateDCTtable(blockSize);
+    
     grayDCT = DCT(grayscale, DCTCosTable);
     redDCT = DCT(red, DCTCosTable);
     greenDCT = DCT(green, DCTCosTable);
     blueDCT = DCT(blue, DCTCosTable);
+  }
+
+  public void calculateReverseDCTs() {
+    //Calculates the DCT table of all color spaces (gray, red, green and blue DCT)
+    float[][] DCTCosTable = generateDCTtable(blockSize);
+
+    compGrayscale = reverseDCT(qGrayDCT, DCTCosTable);
+    compRed = reverseDCT(qRedDCT, DCTCosTable);
+    compGreen = reverseDCT(qGreenDCT, DCTCosTable);
+    compBlue = reverseDCT(qBlueDCT, DCTCosTable);
   }
 
   public void setFactor(int factor) {
@@ -229,12 +166,14 @@ public class JCompressor {
     quantizationMatrix = generateQMatrix(blockSize, qualityFactor);
     calculateDCTs();
     quantizeDCTs();
+    calculateReverseDCTs();
 
     /*
     *re-generate quantization table [Done]
     *re-calculate DCT tables [Done]
     *re-quantize DCT tables [Done]
-    *re-generate compressed matrices #
+    *re-generate compressed matrices (reverse DCT) [Done]
+    *re-generate resulting PImage
     */
   }
 
@@ -274,24 +213,123 @@ public static int[][] generateQMatrix(int dimension, int factor) {
 
 
 public static int[][] quantize(int[][] DCTMatrix, int[][] qMatrix) {
-    /*divides and re-multiplies the @DCTMatrix elements by the elements of the @qMatrix and returns the new resulting matrix
-      so that high frequency coeffs are set to 0
-    */
+  /*divides and re-multiplies the @DCTMatrix elements by the elements of the @qMatrix and returns the new resulting matrix
+    so that high frequency coeffs are set to 0
+  */
 
-    /*
-    if(DCTMatrix.length % qMatrix.length != 0 || DCTMatrix[0].length % qMatrix[0].length != 0) {
-      throw new Exception("DCT Matrix does not match quantization matrix");
+  int[][] result = new int[DCTMatrix.length][DCTMatrix[0].length];
+  int dim = qMatrix.length;
+
+  for(int i = 0, rows = result.length; i < rows; i++) {
+    for(int j = 0, cols = result[0].length; j < cols; j++) {
+      result[i][j] = (DCTMatrix[i][j] / qMatrix[i % dim][j % dim]) * qMatrix[i % dim][j % dim];
     }
-    */
-
-    int[][] result = new int[DCTMatrix.length][DCTMatrix[0].length];
-    int dim = qMatrix.length;
-
-    for(int i = 0, rows = result.length; i < rows; i++) {
-      for(int j = 0, cols = result[0].length; j < cols; j++) {
-        result[i][j] = (DCTMatrix[i][j] / qMatrix[i % dim][j % dim]) * qMatrix[i % dim][j % dim];
-      }
-    }
-
-    return result;
   }
+
+  return result;
+}
+
+public static int[][] DCT(int[][] original, float[][] DCTCosTable) {
+  //returns DCT matrix of @original
+  int[][] result = new int[original.length][original[0].length];
+  float[][] alpha = new float[DCTCosTable.length][DCTCosTable.length];
+
+  int dim = DCTCosTable.length;
+  //left part of the formula (before the double sum) #formula to be checked
+  for(int u = 0; u < dim; u++) {
+    for(int v = 0; v < dim; v++) {
+      alpha[u][v] = ( 2 * (u == 0 ? 1.0/sqrt(2) : 1.0) * (v == 0 ? 1.0/sqrt(2) : 1.0) ) / dim;
+    }
+  }
+
+  //loop through image blocks (dim * dim) bi = block row, bj = block column
+  for(int bi = 0, rows = original.length; bi < rows; bi += dim) {
+    for(int bj = 0, cols = original[0].length; bj < cols; bj += dim) {
+
+      //loop through elements of one block (dim * dim)
+      for(int u = 0; u < dim; u++) {
+        for(int v = 0; v < dim; v++) {
+          
+          float sum = 0;
+          for(int x = 0; x < dim; x++) {
+            for(int y = 0; y < dim; y++) {
+              sum += original[bi + x][bj + y] * DCTCosTable[x][u] * DCTCosTable[y][v];
+            }
+          }
+
+          result[bi + u][bj + v] = (int) (alpha[u][v] * sum);
+        }
+      }
+
+    }
+  }
+
+  return result;
+}
+
+public static int[][] reverseDCT(int[][] DCT, float[][] DCTCosTable) {
+  //returns the resulting image of @DCT matrix
+  int[][] result = new int[DCT.length][DCT[0].length];
+  float[][] alpha = new float[DCTCosTable.length][DCTCosTable.length];
+
+  int dim = DCTCosTable.length;
+
+  //left part of the formula (inside the double sum) #formula to be checked
+  for(int u = 0; u < dim; u++) {
+    for(int v = 0; v < dim; v++) {
+      alpha[u][v] = (u == 0 ? 1.0/sqrt(2) : 1.0) * (v == 0 ? 1.0/sqrt(2) : 1.0);
+    }
+  }
+
+  //loop through image blocks (dim * dim) bi = block row, bj = block column
+  for(int bi = 0, rows = DCT.length; bi < rows; bi += dim) {
+    for(int bj = 0, cols = DCT[0].length; bj < cols; bj += dim) {
+
+      //loop through elements of one block (dim * dim)
+      for(int x = 0; x < dim; x++) {
+        for(int y = 0; y < dim; y++) {
+          
+          float sum = 0;
+          for(int u = 0; u < dim; u++) {
+            for(int v = 0; v < dim; v++) {
+              sum += alpha[u][v] * DCT[bi + u][bj + v] * DCTCosTable[x][u] * DCTCosTable[y][v];
+            }
+          }
+
+          result[bi + x][bj + y] = (int) (sum / sqrt(2*dim));
+        }
+      }
+
+    }
+  }
+
+  return result;
+}
+
+public static PImage matrixToPImage(int[][] gray) {
+  //takes a grayscale matrix image and returns a corresponding PImage
+  PImage result = createImage(gray[0].length, gray.length, RGB);
+  w = result.width;
+
+  result.loadPixels();
+  for(int i = 0; i < result.pixels.length; i++) {
+    result[i] = color(gray[i / w ][i % w]);
+  }
+  result.updatePixels();
+
+  return result;
+}
+
+public static PImage matrixToPImage(int[][] red, int[][] green, int[][] blue) {
+  //takes 3 matrices image (r,g,b colorspaces) and returns a corresponding PImage
+  PImage result = createImage(gray[0].length, gray.length, RGB);
+  w = result.width;
+
+  result.loadPixels();
+  for(int i = 0; i < result.pixels.length; i++) {
+    result[i] = color(red[i / w ][i % w], green[i / w ][i % w], blue[i / w ][i % w]);
+  }
+  result.updatePixels();
+
+  return result;
+}
