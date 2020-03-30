@@ -259,6 +259,7 @@ public static int[][] reverseDCT(int[][] DCT, float[][] DCTCosTable) {
 
 public int[][] toIntMatrix(PImage original, char colorSpace, int mWidth, int mHeight) {
     //Returns a matrix of the image in the right color space (mWidth * mHeight compatible with blockSize)
+    //#change the method of getting the RGB component (use bitshift method instead of red() green() blue() function)
     original.loadPixels();
     int[][] result = new int[mHeight][mWidth];
     
