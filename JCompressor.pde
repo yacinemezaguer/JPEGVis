@@ -46,7 +46,7 @@ public class JCompressor {
   private int qBlueDCT[][];
   
   public JCompressor(PImage img) {
-    this(img, 5, CLR_M);
+    this(img, 10, CLR_M);
   }
 
   public JCompressor(PImage img, int factor, char colorMode) {
@@ -118,6 +118,13 @@ public class JCompressor {
     calculateDCTs();
     quantizeDCTs();
     calculateReverseDCTs();
+
+    //generate resulting PImage
+    if(colorMode == BW_M) {
+      compressed = matrixToPImage(compGrayscale, original.width, original.height);
+    }else {
+      compressed = matrixToPImage(compRed, compGreen, compBlue, original.width, original.height);
+    }
 
     /*
     *re-generate quantization table [Done]
