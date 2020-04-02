@@ -125,14 +125,6 @@ public class JCompressor {
     }else {
       compressed = matrixToPImage(compRed, compGreen, compBlue, original.width, original.height);
     }
-
-    /*
-    *re-generate quantization table [Done]
-    *re-calculate DCT tables [Done]
-    *re-quantize DCT tables [Done]
-    *re-generate compressed matrices (reverse DCT) [Done]
-    *re-generate resulting PImage
-    */
   }
 
   private void quantizeDCTs() {
