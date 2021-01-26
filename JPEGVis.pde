@@ -9,7 +9,7 @@ JCompressor jc = null;
 ControlFont font = null;
 Slider2D zoomMap = null;
 int w, h;
-boolean zoomMode = true;
+boolean zoomMode = false;
 
 float displayRatio = 0.5;
 void setup() {
@@ -36,7 +36,7 @@ void setup() {
      ;
    
   //Factor slider
-  cp5.addSlider("factorSlider", 0, 30, 8, 200, 15, 130, 30)
+  cp5.addSlider("factorSlider", 0, 100, 8, 200, 15, 130, 30)
      .setColor(new CColor(color(120), color(80), color(160), color(210), color(210)))
      .setCaptionLabel("Factor")
      .getCaptionLabel().setFont(new ControlFont(createFont("Calibri",20)));
@@ -64,11 +64,11 @@ void setup() {
      .getCaptionLabel().setFont(font)
      ;
 
-  //Compress button
-  cp5.addButton("compressButton")
-     .setPosition(600,15)
+  //Zoom button
+  cp5.addButton("zoomButton")
+     .setPosition(220, 185 + height * displayRatio)
      .setSize(100,30)
-     .setCaptionLabel("Compress")
+     .setCaptionLabel("Zoom")
      .setColor(new CColor(color(120), color(80), color(160), color(210), color(210))) //foreground, background, active, captionLabel, valueLabel
      .getCaptionLabel().setFont(font)
      ;
@@ -125,7 +125,6 @@ void mouseClicked() {
 }
 
 public void importButton() {
-  println("pressed Import button");
   selectInput("importer une image", "importImage");
 }
 
@@ -146,16 +145,22 @@ public void setFactorButton() {
   }
 }
 
+public void zoomButton() {
+  zoomMode = !zoomMode;
+}
+
 public void factorSlider(int theValue) {
   Textfield txt = ((Textfield)cp5.getController("factorTextField"));
   txt.setValue(""+theValue);
 }
 
 void importImage(File selection) {
-  println(selection.getAbsolutePath());
-  original = loadImage(selection.getAbsolutePath());
-  jc = new JCompressor(original);
-  compressed = jc.getCompressed();
+  if(selection != null) {
+    println(selection.getAbsolutePath());
+    original = loadImage(selection.getAbsolutePath());
+    jc = new JCompressor(original);
+    compressed = jc.getCompressed();
+  }
 }
 
 void printMatrix(int[][] matrix) {
